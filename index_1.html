@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>새롬중 연수 서명부</title>
+<style>
+  :root {
+    --blue-600:#2563eb; --blue-700:#1d4ed8; --blue-50:#eff6ff;
+    --slate-50:#f8fafc; --slate-100:#f1f5f9; --slate-200:#e2e8f0; --slate-300:#cbd5e1;
+    --slate-400:#94a3b8; --slate-500:#64748b; --slate-600:#475569; --slate-700:#334155; --slate-800:#1e293b;
+    --emerald-600:#059669; --emerald-700:#047857; --emerald-100:#d1fae5; --emerald-800:#065f46;
+    --amber-500:#f59e0b;
+    --rose-500:#f43f5e; --rose-600:#e11d48; --rose-100:#ffe4e6; --rose-800:#9f1239;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; }
+  body {
+    font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--slate-50);
+    color: var(--slate-800);
+    -webkit-user-select: none; user-select: none;
+    min-height: 100vh;
+  }
+  input, button, select { font-family: inherit; }
+  [hidden] { display: none !important; }
+  canvas { touch-action: none; display:block; }
+  a { color: inherit; }
+
+  /* ---------- 공통 ---------- */
+  .btn {
+    border: none; border-radius: 8px; padding: 10px 16px; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: background .15s;
+  }
+  .btn-primary { background: var(--blue-600); color: #fff; }
+  .btn-primary:hover { background: var(--blue-700); }
+  .btn-primary:disabled { background: var(--slate-300); cursor: not-allowed; }
+  .btn-emerald { background: var(--emerald-600); color: #fff; }
+  .btn-emerald:hover { background: var(--emerald-700); }
+  .btn-secondary { background: var(--slate-200); color: var(--slate-600); }
+  .btn-danger { background: var(--rose-500); color: #fff; }
+  .btn-danger:hover { background: var(--rose-600); }
+  .btn-sm { padding: 4px 8px; font-size: 12px; border-radius: 6px; }
+  .btn-dark { background: var(--slate-800); color: #fff; }
+  .input {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--slate-300); border-radius: 8px;
+    font-size: 14px; background: var(--slate-50); color: var(--slate-800); outline: none;
+  }
+  .input:focus { border-color: var(--blue-600); box-shadow: 0 0 0 2px var(--blue-50); }
+  label.field-label { display:block; font-size: 12px; font-weight: 700; color: var(--slate-500); margin-bottom: 4px; }
+  .card { background: #fff; border: 1px solid var(--slate-200); border-radius: 14px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .badge { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; display:inline-block; }
+  .badge-ok { background: var(--emerald-100); color: var(--emerald-800); }
+  .badge-no { background: var(--rose-100); color: var(--rose-800); }
+
+  /* ---------- 서명 화면 ---------- */
+  #signView { min-height: 100vh; display:flex; flex-direction:column; justify-content:space-between; }
+  .sign-header { background: var(--blue-600); color:#fff; text-align:center; padding: 18px 16px; }
+  .sign-header h1 { font-size: 18px; font-weight: 800; margin: 0; }
+  .sign-header p { font-size: 12px; color: var(--blue-50); margin: 4px 0 0; }
+  .sign-main { flex:1; max-width: 420px; width:100%; margin: 0 auto; padding: 16px; }
+  .sign-card { padding: 20px; display:flex; flex-direction:column; gap:16px; }
+  .sig-wrap { border: 2px dashed var(--slate-300); border-radius: 10px; overflow:hidden; background: var(--slate-50); }
+  #sigCanvas { width:100%; height:180px; background: var(--slate-50); }
+  .sig-toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .sign-footer { text-align:center; padding: 14px; font-size: 12px; color: var(--slate-400); }
+  .sign-footer button { background:none; border:none; cursor:pointer; font: inherit; color: inherit; }
+  .sign-footer button:hover { color: var(--slate-600); text-decoration: underline; }
+
+  /* ---------- 관리자 화면 ---------- */
+  #adminView { min-height: 100vh; }
+  .admin-header { background: var(--blue-600); color: #fff; padding: 14px 16px; }
+  .admin-header-inner { max-width: 1040px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+  .admin-title { font-size: 17px; font-weight: 800; }
+  .admin-nav { display:flex; align-items:center; gap:10px; flex-wrap: wrap; }
+  .tabbar { background: var(--blue-700); padding: 4px; border-radius: 10px; display:flex; gap:4px; }
+  .tabbtn { background: transparent; border:none; color:#fff; padding: 7px 12px; border-radius: 7px; font-size: 13px; font-weight:600; cursor:pointer; }
+  .tabbtn.active { background:#fff; color: var(--blue-700); }
+  .admin-main { max-width: 1040px; margin: 16px auto; padding: 0 16px 40px; }
+  .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+  .panel { padding: 18px; }
+  .panel h2 { font-size: 15px; font-weight:800; margin: 0 0 12px; padding-bottom: 10px; border-bottom: 1px solid var(--slate-200); }
+  .panel form { display:flex; flex-direction:column; gap: 10px; }
+  table.list { width:100%; border-collapse: collapse; }
+  table.list th, table.list td { padding: 8px; text-align:left; font-size: 13px; border-bottom: 1px solid var(--slate-100); }
+  table.list th { background: var(--slate-100); position: sticky; top:0; font-size:12px; color: var(--slate-600); }
+  .list-scroll { max-height: 260px; overflow-y: auto; }
+  .actions-cell { white-space: nowrap; text-align: center !important; }
+  .actions-cell .btn { margin: 0 2px; }
+
+  .status-toolbar { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap: 12px; border-bottom: 1px solid var(--slate-200); padding-bottom: 16px; margin-bottom: 12px; }
+  .status-toolbar select { min-width: 220px; font-weight: 700; }
+  table.status-table { width:100%; border-collapse: collapse; }
+  table.status-table th, table.status-table td { padding: 10px; border-bottom: 1px solid var(--slate-100); text-align:left; font-size: 14px; }
+  table.status-table th { background: var(--slate-100); font-size: 13px; }
+  .sig-thumb { height: 28px; border: 1px solid var(--slate-200); border-radius: 4px; background: var(--slate-50); padding: 1px; }
+  .empty-note { text-align:center; color: var(--slate-400); padding: 40px 10px; }
+
+  /* 로그인 카드 */
+  .login-wrap { max-width: 360px; margin: 60px auto; padding: 0 16px; }
+  .login-card { padding: 28px; text-align:center; }
+  .login-card h2 { margin: 0 0 4px; font-size: 17px; }
+  .login-card p { margin: 0 0 18px; font-size: 12px; color: var(--slate-500); }
+  .login-card form { display:flex; flex-direction:column; gap: 10px; text-align:left; }
+  .login-error { color: var(--rose-600); font-size: 12px; margin-top: 8px; }
+
+  /* 모달 */
+  .modal { display:none; position: fixed; inset:0; background: rgba(0,0,0,.4); align-items:center; justify-content:center; padding: 16px; z-index: 50; }
+  .modal.active { display:flex; }
+  .modal-box { background:#fff; max-width: 400px; width:100%; padding: 22px; border-radius: 14px; display:flex; flex-direction:column; gap: 14px; }
+  .modal-box h3 { margin:0; padding-bottom: 8px; border-bottom:1px solid var(--slate-200); font-size:16px; }
+  .modal-box .modal-actions { display:flex; justify-content:flex-end; gap:8px; }
+
+  /* PDF 렌더용 숨김 시트 (html2canvas가 캡처) */
+  #pdfSheet {
+    position: fixed; left: -99999px; top: 0; width: 1240px; background:#fff; color:#111;
+    font-family: 'Malgun Gothic','Apple SD Gothic Neo',sans-serif; padding: 24px; box-sizing: border-box;
+  }
+  #pdfSheet table { border-collapse: collapse; }
+  #pdfSheet td, #pdfSheet th {
+    border: 1px solid #444; text-align:center; padding: 2px 1px; overflow:hidden;
+    white-space: nowrap; text-overflow: ellipsis;
+  }
+</style>
+</head>
+<body>
+
+  <!-- ============ 서명 화면 ============ -->
+  <div id="signView">
+    <header class="sign-header">
+      <h1>🏫 새롬중학교 연수 서명부</h1>
+      <p>스마트폰으로 편리하게 서명해 주세요.</p>
+    </header>
+
+    <main class="sign-main">
+      <div class="card sign-card">
+        <div>
+          <label class="field-label">1. 참석 연수 선택</label>
+          <select id="trainingSelect" class="input">
+            <option value="">-- 진행 중인 연수를 선택하세요 --</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="field-label">2. 선생님 성명 선택</label>
+          <select id="staffSelect" class="input">
+            <option value="">-- 성명을 선택하세요 (가나다순) --</option>
+          </select>
+        </div>
+
+        <div>
+          <div class="sig-toolbar">
+            <label class="field-label" style="margin:0;">3. 친필 서명</label>
+            <button type="button" id="clearBtn" class="btn btn-secondary btn-sm">🔄 다시 그리기</button>
+          </div>
+          <div class="sig-wrap">
+            <canvas id="sigCanvas" width="350" height="180"></canvas>
+          </div>
+        </div>
+
+        <button type="button" id="submitBtn" class="btn btn-primary" style="padding:14px; font-size:15px;">서명 제출하기</button>
+      </div>
+    </main>
+
+    <footer class="sign-footer">
+      <button type="button" id="goAdminBtn">⚙️ 새롬중학교 행정 지원 시스템 (관리자)</button>
+    </footer>
+  </div>
+
+  <!-- ============ 관리자 화면 ============ -->
+  <div id="adminView" hidden>
+
+    <!-- 로그인 전 -->
+    <div id="adminLoginWrap" class="login-wrap">
+      <div class="card login-card">
+        <h2>🔒 관리자 로그인</h2>
+        <p>등록된 관리자 계정으로 로그인해 주세요.</p>
+        <form id="loginForm">
+          <input type="email" id="loginEmail" class="input" placeholder="이메일" required autocomplete="username">
+          <input type="password" id="loginPassword" class="input" placeholder="비밀번호" required autocomplete="current-password">
+          <button type="submit" class="btn btn-primary">로그인</button>
+        </form>
+        <div id="loginError" class="login-error" hidden></div>
+        <button type="button" id="backToSignBtn2" class="btn btn-secondary" style="margin-top:14px;">↩️ 서명 화면으로</button>
+      </div>
+    </div>
+
+    <!-- 로그인 후 -->
+    <div id="adminPanelWrap" hidden>
+      <header class="admin-header">
+        <div class="admin-header-inner">
+          <div class="admin-title">🏫 새롬중학교 연수 관리 시스템</div>
+          <div class="admin-nav">
+            <div class="tabbar">
+              <button type="button" class="tabbtn active" data-tab="manageTab">🛠️ 연수/인사 관리</button>
+              <button type="button" class="tabbtn" data-tab="statusTab">📋 서명부 조회·PDF</button>
+            </div>
+            <button type="button" id="backToSignBtn" class="btn btn-dark btn-sm">↩️ 서명 화면</button>
+            <button type="button" id="logoutBtn" class="btn btn-secondary btn-sm">로그아웃</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="admin-main">
+
+        <div id="manageTab" class="grid2">
+          <div class="card panel">
+            <h2>📅 신규 연수 개설</h2>
+            <form id="trainingForm">
+              <div><label class="field-label">연수명</label><input type="text" id="trainingName" class="input" required placeholder="예: 과정중심평가 연수"></div>
+              <div><label class="field-label">연수 날짜</label><input type="date" id="trainingDate" class="input" required></div>
+              <div><label class="field-label">연수 장소</label><input type="text" id="trainingLocation" class="input" required placeholder="예: 시청각실"></div>
+              <button type="submit" class="btn btn-primary">연수 등록하기</button>
+            </form>
+          </div>
+
+          <div class="card panel">
+            <h2>👤 교직원 명단 추가</h2>
+            <form id="staffForm">
+              <div><label class="field-label">선생님 성명</label><input type="text" id="staffName" class="input" required placeholder="예: 홍길동"></div>
+              <div><label class="field-label">직위 / 직책</label><input type="text" id="staffRole" class="input" required placeholder="예: 교사, 부장교사 등"></div>
+              <button type="submit" class="btn btn-emerald">교직원 명단 등록</button>
+            </form>
+          </div>
+
+          <div class="card panel">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--slate-200); padding-bottom:10px; margin-bottom:12px;">
+              <h2 style="border:none; margin:0; padding:0;">📊 등록된 연수 목록</h2>
+            </div>
+            <div class="list-scroll">
+              <table class="list">
+                <thead><tr><th>연수명</th><th>날짜</th><th class="actions-cell">관리</th></tr></thead>
+                <tbody id="trainingListTable"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card panel">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--slate-200); padding-bottom:10px; margin-bottom:12px;">
+              <h2 style="border:none; margin:0; padding:0;">👥 등록된 교직원 명단</h2>
+              <button type="button" id="seedBtn" class="btn btn-secondary btn-sm">📥 기존 명단 가져오기</button>
+            </div>
+            <div class="list-scroll">
+              <table class="list">
+                <thead><tr><th>성명</th><th>직위</th><th class="actions-cell">관리</th></tr></thead>
+                <tbody id="staffListTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="statusTab" class="card panel" hidden>
+          <div class="status-toolbar">
+            <div>
+              <h2 style="border:none; padding:0; margin:0 0 4px;">📋 연수별 서명 제출부 관리조회</h2>
+              <p style="margin:0; font-size:12px; color:var(--slate-400);">확인할 연수를 지정한 후 출력 혹은 제출인원을 대조하세요.</p>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <select id="statusTrainingSelect" class="input">
+                <option value="">-- 조회할 연수를 선택하세요 --</option>
+              </select>
+              <button type="button" id="pdfBtn" class="btn btn-dark" disabled>🖨️ PDF 다운로드</button>
+            </div>
+          </div>
+          <div class="list-scroll" style="max-height:520px;">
+            <table class="status-table">
+              <thead>
+                <tr><th style="width:15%">성명</th><th style="width:25%">직위 / 직책</th><th style="width:30%; text-align:center;">서명 참여 여부</th><th style="width:30%; text-align:center;">전자 친필 확인</th></tr>
+              </thead>
+              <tbody id="statusReportTable">
+                <tr><td colspan="4" class="empty-note">상단 드롭다운에서 조회할 연수를 지정해 주세요.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ============ 모달 ============ -->
+  <div id="editTrainingModal" class="modal">
+    <div class="modal-box">
+      <h3>✏️ 연수 정보 수정</h3>
+      <input type="hidden" id="editTrainingId">
+      <div><label class="field-label">연수명</label><input type="text" id="editTrainingName" class="input"></div>
+      <div><label class="field-label">연수 날짜</label><input type="date" id="editTrainingDate" class="input"></div>
+      <div><label class="field-label">연수 장소</label><input type="text" id="editTrainingLocation" class="input"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" data-close="editTrainingModal">취소</button>
+        <button type="button" class="btn btn-primary" id="saveTrainingBtn">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="editStaffModal" class="modal">
+    <div class="modal-box">
+      <h3>✏️ 교직원 정보 수정</h3>
+      <input type="hidden" id="editStaffId">
+      <div><label class="field-label">선생님 성명</label><input type="text" id="editStaffName" class="input"></div>
+      <div><label class="field-label">직위 / 직책</label><input type="text" id="editStaffRole" class="input"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" data-close="editStaffModal">취소</button>
+        <button type="button" class="btn btn-emerald" id="saveStaffBtn">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PDF 렌더링용 숨김 영역 -->
+  <div id="pdfSheet"></div>
+
+  <!-- ============ 라이브러리 ============ -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getAuth, onAuthStateChanged, signInAnonymously,
+    signInWithEmailAndPassword, signOut
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import {
+    getFirestore, collection, doc, addDoc, setDoc, updateDoc, deleteDoc,
+    getDocs, query, orderBy, where, limit, writeBatch, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  // ----------------------------------------------------------------
+  // Firebase 설정 (프로젝트: 2026-Registration Book)
+  // ----------------------------------------------------------------
+  const firebaseConfig = {
+    apiKey: "AIzaSyBK15A9ZwPqIUVp9Akt53YBw39JdazOxoE",
+    authDomain: "registration-book-260d1.firebaseapp.com",
+    projectId: "registration-book-260d1",
+    storageBucket: "registration-book-260d1.firebasestorage.app",
+    messagingSenderId: "1036323125879",
+    appId: "1:1036323125879:web:bb9f52fcb6525ebd6e6472"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // ----------------------------------------------------------------
+  // 기존 스프레드시트 마이그레이션용 시드 데이터 (관리자 화면의
+  // "기존 명단 가져오기" 버튼을 누르면 1회성으로 저장됩니다.
+  // 고정 ID를 사용하므로 여러 번 눌러도 중복 생성되지 않습니다.)
+  // ----------------------------------------------------------------
+  const SEED_STAFF = [
+    {id:'ST-1',name:'박덕경',role:'교장',order:1}, {id:'ST-2',name:'권혜영',role:'교감',order:2},
+    {id:'ST-3',name:'강명희',role:'교사',order:3}, {id:'ST-4',name:'강민우',role:'교사',order:4},
+    {id:'ST-5',name:'강효정',role:'교사',order:5}, {id:'ST-6',name:'고혜선',role:'교사',order:6},
+    {id:'ST-7',name:'구지훈',role:'교사',order:7}, {id:'ST-8',name:'권정현',role:'교사',order:8},
+    {id:'ST-9',name:'길소희',role:'교사',order:9}, {id:'ST-10',name:'김기성',role:'교사',order:10},
+    {id:'ST-11',name:'김은지',role:'교사',order:11}, {id:'ST-12',name:'김은진',role:'교사',order:12},
+    {id:'ST-13',name:'김진희',role:'교사',order:13}, {id:'ST-14',name:'김효진',role:'교사',order:14},
+    {id:'ST-15',name:'류진현',role:'교사',order:15}, {id:'ST-16',name:'박경희',role:'교사',order:16},
+    {id:'ST-17',name:'박민수',role:'교사',order:17}, {id:'ST-18',name:'박소현',role:'교사',order:18},
+    {id:'ST-19',name:'박영주',role:'교사',order:19}, {id:'ST-20',name:'박지혜',role:'교사',order:20},
+    {id:'ST-21',name:'박현미',role:'교사',order:21}, {id:'ST-22',name:'박혜정',role:'교사',order:22},
+    {id:'ST-23',name:'서미화',role:'교사',order:23}, {id:'ST-24',name:'서인경',role:'교사',order:24},
+    {id:'ST-25',name:'서주영',role:'교사',order:25}, {id:'ST-26',name:'송태리',role:'교사',order:26},
+    {id:'ST-27',name:'신은영',role:'교사',order:27}, {id:'ST-28',name:'염상균',role:'교사',order:28},
+    {id:'ST-29',name:'유진선',role:'교사',order:29}, {id:'ST-30',name:'윤정미',role:'교사',order:30},
+    {id:'ST-31',name:'이선경',role:'교사',order:31}, {id:'ST-32',name:'이승희',role:'교사',order:32},
+    {id:'ST-33',name:'이언호',role:'교사',order:33}, {id:'ST-34',name:'이영미',role:'교사',order:34},
+    {id:'ST-35',name:'이예원',role:'교사',order:35}, {id:'ST-36',name:'이윤정',role:'교사',order:36},
+    {id:'ST-37',name:'이지은',role:'교사',order:37}, {id:'ST-38',name:'이현정',role:'교사',order:38},
+    {id:'ST-39',name:'이현진',role:'교사',order:39}, {id:'ST-40',name:'임승진',role:'교사',order:40},
+    {id:'ST-41',name:'임예은',role:'교사',order:41}, {id:'ST-42',name:'장수환',role:'교사',order:42},
+    {id:'ST-43',name:'정은영',role:'교사',order:43}, {id:'ST-44',name:'정해준',role:'교사',order:44},
+    {id:'ST-45',name:'조현서',role:'교사',order:45}, {id:'ST-46',name:'조혜영',role:'교사',order:46},
+    {id:'ST-47',name:'채지훈',role:'교사',order:47}, {id:'ST-48',name:'최미희',role:'교사',order:48},
+    {id:'ST-49',name:'최선',role:'교사',order:49}, {id:'ST-50',name:'최진숙',role:'교사',order:50},
+    {id:'ST-51',name:'한경희',role:'교사',order:51}, {id:'ST-52',name:'한종구',role:'교사',order:52},
+    {id:'ST-53',name:'홍재순',role:'교사',order:53}, {id:'ST-54',name:'황나원',role:'교사',order:54}
+  ];
+  const SEED_TRAININGS = [
+    {id:'TR-20260623-152021', name:'AI 활용 및 생기부 작성', date:'2026-06-24', location:'도서실'}
+  ];
+
+  // ----------------------------------------------------------------
+  // 엘리먼트 참조
+  // ----------------------------------------------------------------
+  const signView = document.getElementById('signView');
+  const adminView = document.getElementById('adminView');
+  const adminLoginWrap = document.getElementById('adminLoginWrap');
+  const adminPanelWrap = document.getElementById('adminPanelWrap');
+
+  const trainingSelect = document.getElementById('trainingSelect');
+  const staffSelect = document.getElementById('staffSelect');
+  const clearBtn = document.getElementById('clearBtn');
+  const submitBtn = document.getElementById('submitBtn');
+  const goAdminBtn = document.getElementById('goAdminBtn');
+  const backToSignBtn = document.getElementById('backToSignBtn');
+  const backToSignBtn2 = document.getElementById('backToSignBtn2');
+  const logoutBtn = document.getElementById('logoutBtn');
+
+  const loginForm = document.getElementById('loginForm');
+  const loginEmail = document.getElementById('loginEmail');
+  const loginPassword = document.getElementById('loginPassword');
+  const loginError = document.getElementById('loginError');
+
+  const trainingForm = document.getElementById('trainingForm');
+  const staffForm = document.getElementById('staffForm');
+  const trainingListTable = document.getElementById('trainingListTable');
+  const staffListTable = document.getElementById('staffListTable');
+  const seedBtn = document.getElementById('seedBtn');
+
+  const statusTrainingSelect = document.getElementById('statusTrainingSelect');
+  const statusReportTable = document.getElementById('statusReportTable');
+  const pdfBtn = document.getElementById('pdfBtn');
+  const pdfSheet = document.getElementById('pdfSheet');
+
+  let currentTrainings = [];
+  let currentStaff = [];
+  let isAdmin = false;
+
+  // ----------------------------------------------------------------
+  // 라우팅 (#admin)
+  // ----------------------------------------------------------------
+  function route() {
+    const wantAdmin = location.hash === '#admin';
+    signView.hidden = wantAdmin;
+    adminView.hidden = !wantAdmin;
+    if (wantAdmin) updateAdminAuthUI();
+  }
+  goAdminBtn.addEventListener('click', () => { location.hash = '#admin'; });
+  backToSignBtn.addEventListener('click', () => { location.hash = ''; });
+  backToSignBtn2.addEventListener('click', () => { location.hash = ''; });
+  window.addEventListener('hashchange', route);
+
+  // ----------------------------------------------------------------
+  // 인증
+  // ----------------------------------------------------------------
+  onAuthStateChanged(auth, (user) => {
+    isAdmin = !!(user && !user.isAnonymous);
+    updateAdminAuthUI();
+    if (!user) {
+      signInAnonymously(auth).catch((e) => console.error('익명 로그인 실패', e));
+    }
+  });
+
+  function updateAdminAuthUI() {
+    if (adminView.hidden) return;
+    if (isAdmin) {
+      adminLoginWrap.hidden = true;
+      adminPanelWrap.hidden = false;
+      loadTrainings();
+      loadStaff();
+    } else {
+      adminLoginWrap.hidden = false;
+      adminPanelWrap.hidden = true;
+    }
+  }
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    loginError.hidden = true;
+    try {
+      await signInWithEmailAndPassword(auth, loginEmail.value.trim(), loginPassword.value);
+      loginPassword.value = '';
+    } catch (err) {
+      loginError.textContent = '로그인 실패: 이메일 또는 비밀번호를 확인해 주세요.';
+      loginError.hidden = false;
+    }
+  });
+
+  logoutBtn.addEventListener('click', async () => {
+    await signOut(auth);
+    location.hash = '';
+  });
+
+  // ----------------------------------------------------------------
+  // 탭 전환
+  // ----------------------------------------------------------------
+  document.querySelectorAll('.tabbtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tabbtn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('manageTab').hidden = btn.dataset.tab !== 'manageTab';
+      document.getElementById('statusTab').hidden = btn.dataset.tab !== 'statusTab';
+    });
+  });
+
+  // ----------------------------------------------------------------
+  // 서명 캔버스
+  // ----------------------------------------------------------------
+  const canvas = document.getElementById('sigCanvas');
+  const ctx = canvas.getContext('2d');
+  let isDrawing = false, lastX = 0, lastY = 0;
+
+  function resizeCanvas() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = 180;
+    ctx.strokeStyle = '#1e3a8a';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+  }
+  window.addEventListener('load', resizeCanvas);
+  window.addEventListener('resize', resizeCanvas);
+
+  canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault(); isDrawing = true;
+    const t = e.touches[0], r = canvas.getBoundingClientRect();
+    [lastX, lastY] = [t.clientX - r.left, t.clientY - r.top];
+  });
+  canvas.addEventListener('touchmove', (e) => {
+    if (!isDrawing) return;
+    e.preventDefault();
+    const t = e.touches[0], r = canvas.getBoundingClientRect();
+    const x = t.clientX - r.left, y = t.clientY - r.top;
+    ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(x, y); ctx.stroke();
+    [lastX, lastY] = [x, y];
+  });
+  canvas.addEventListener('touchend', () => isDrawing = false);
+  canvas.addEventListener('mousedown', (e) => { isDrawing = true; [lastX, lastY] = [e.offsetX, e.offsetY]; });
+  canvas.addEventListener('mousemove', (e) => {
+    if (!isDrawing) return;
+    ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke();
+    [lastX, lastY] = [e.offsetX, e.offsetY];
+  });
+  canvas.addEventListener('mouseup', () => isDrawing = false);
+
+  function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+  clearBtn.addEventListener('click', clearCanvas);
+
+  function isCanvasBlank() {
+    const blank = document.createElement('canvas');
+    blank.width = canvas.width; blank.height = canvas.height;
+    return canvas.toDataURL() === blank.toDataURL();
+  }
+
+  // ----------------------------------------------------------------
+  // 서명 화면 드롭다운 로드
+  // ----------------------------------------------------------------
+  async function loadSignDropdowns() {
+    const trainings = await fetchTrainings();
+    trainingSelect.innerHTML = '<option value="">-- 진행 중인 연수를 선택하세요 --</option>';
+    trainings.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.id; opt.textContent = t.name;
+      trainingSelect.appendChild(opt);
+    });
+
+    const staff = sortByNameKo(await fetchStaff());
+    staffSelect.innerHTML = '<option value="">-- 성명을 선택하세요 (가나다순) --</option>';
+    staff.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.name; opt.textContent = `${s.name} (${s.role})`;
+      opt.dataset.role = s.role;
+      staffSelect.appendChild(opt);
+    });
+  }
+
+  submitBtn.addEventListener('click', async () => {
+    const trainingId = trainingSelect.value;
+    const trainingName = trainingSelect.selectedOptions[0]?.textContent || '';
+    const staffName = staffSelect.value;
+    const role = staffSelect.selectedOptions[0]?.dataset.role || '';
+
+    if (!trainingId) return alert('연수를 선택해 주세요.');
+    if (!staffName) return alert('성명을 선택해 주세요.');
+    if (isCanvasBlank()) return alert('서명 패드에 친필 서명을 입력해 주세요.');
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = '서명 전송 중...';
+    try {
+      const sigId = `${trainingId}__${encodeURIComponent(staffName)}`;
+      await setDoc(doc(db, 'signatures', sigId), {
+        trainingId, trainingName, staffName, role,
+        signature: canvas.toDataURL('image/png'),
+        submittedAt: serverTimestamp()
+      });
+      alert(staffName + ' 선생님 서명 완료.');
+      clearCanvas();
+      staffSelect.value = '';
+    } catch (err) {
+      alert('오류 발생: ' + err.message);
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '서명 제출하기';
+    }
+  });
+
+  // ----------------------------------------------------------------
+  // Firestore 헬퍼
+  // ----------------------------------------------------------------
+  async function fetchTrainings() {
+    const snap = await getDocs(query(collection(db, 'trainings'), orderBy('createdAt', 'desc')));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  }
+  async function fetchStaff() {
+    const snap = await getDocs(query(collection(db, 'staff'), orderBy('order', 'asc')));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  }
+  function sortByNameKo(list) {
+    return [...list].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+  }
+  async function nextStaffOrder() {
+    const snap = await getDocs(query(collection(db, 'staff'), orderBy('order', 'desc'), limit(1)));
+    if (snap.empty) return 1;
+    return (snap.docs[0].data().order || 0) + 1;
+  }
+  function escapeHtml(str) {
+    return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ----------------------------------------------------------------
+  // 관리자: 연수 관리
+  // ----------------------------------------------------------------
+  async function loadTrainings() {
+    currentTrainings = await fetchTrainings();
+    trainingListTable.innerHTML = '';
+    statusTrainingSelect.innerHTML = '<option value="">-- 조회할 연수를 선택하세요 --</option>';
+    currentTrainings.forEach(t => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${escapeHtml(t.name)}</td>
+        <td>${escapeHtml(t.date)}</td>
+        <td class="actions-cell">
+          <button class="btn btn-sm" style="background:var(--amber-500);color:#fff;" data-edit-training="${t.id}">수정</button>
+          <button class="btn btn-danger btn-sm" data-delete-training="${t.id}">삭제</button>
+        </td>`;
+      trainingListTable.appendChild(tr);
+
+      const opt = document.createElement('option');
+      opt.value = t.id; opt.textContent = `${t.date} | ${t.name}`;
+      statusTrainingSelect.appendChild(opt);
+    });
+  }
+
+  trainingForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await addDoc(collection(db, 'trainings'), {
+        name: document.getElementById('trainingName').value,
+        date: document.getElementById('trainingDate').value,
+        location: document.getElementById('trainingLocation').value,
+        createdAt: serverTimestamp()
+      });
+      trainingForm.reset();
+      await loadTrainings();
+      await loadSignDropdowns();
+    } catch (err) { alert('오류 발생: ' + err.message); }
+  });
+
+  trainingListTable.addEventListener('click', async (e) => {
+    const editId = e.target.dataset.editTraining;
+    const delId = e.target.dataset.deleteTraining;
+    if (editId) {
+      const t = currentTrainings.find(x => x.id === editId);
+      if (!t) return;
+      document.getElementById('editTrainingId').value = t.id;
+      document.getElementById('editTrainingName').value = t.name;
+      document.getElementById('editTrainingDate').value = t.date;
+      document.getElementById('editTrainingLocation').value = t.location;
+      document.getElementById('editTrainingModal').classList.add('active');
+    } else if (delId) {
+      const t = currentTrainings.find(x => x.id === delId);
+      if (t && confirm(`[${t.name}] 연수를 정말 삭제하시겠습니까?`)) {
+        try {
+          await deleteDoc(doc(db, 'trainings', delId));
+          await loadTrainings();
+          await loadSignDropdowns();
+        } catch (err) { alert('오류 발생: ' + err.message); }
+      }
+    }
+  });
+
+  document.getElementById('saveTrainingBtn').addEventListener('click', async () => {
+    const id = document.getElementById('editTrainingId').value;
+    try {
+      await updateDoc(doc(db, 'trainings', id), {
+        name: document.getElementById('editTrainingName').value,
+        date: document.getElementById('editTrainingDate').value,
+        location: document.getElementById('editTrainingLocation').value
+      });
+      document.getElementById('editTrainingModal').classList.remove('active');
+      await loadTrainings();
+      await loadSignDropdowns();
+    } catch (err) { alert('오류 발생: ' + err.message); }
+  });
+
+  // ----------------------------------------------------------------
+  // 관리자: 교직원 관리
+  // ----------------------------------------------------------------
+  async function loadStaff() {
+    currentStaff = await fetchStaff();
+    staffListTable.innerHTML = '';
+    currentStaff.forEach(s => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${escapeHtml(s.name)}</td>
+        <td>${escapeHtml(s.role)}</td>
+        <td class="actions-cell">
+          <button class="btn btn-sm" style="background:var(--amber-500);color:#fff;" data-edit-staff="${s.id}">수정</button>
+          <button class="btn btn-danger btn-sm" data-delete-staff="${s.id}">삭제</button>
+        </td>`;
+      staffListTable.appendChild(tr);
+    });
+  }
+
+  staffForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      const order = await nextStaffOrder();
+      await addDoc(collection(db, 'staff'), {
+        name: document.getElementById('staffName').value,
+        role: document.getElementById('staffRole').value,
+        order
+      });
+      staffForm.reset();
+      await loadStaff();
+      await loadSignDropdowns();
+    } catch (err) { alert('오류 발생: ' + err.message); }
+  });
+
+  staffListTable.addEventListener('click', async (e) => {
+    const editId = e.target.dataset.editStaff;
+    const delId = e.target.dataset.deleteStaff;
+    if (editId) {
+      const s = currentStaff.find(x => x.id === editId);
+      if (!s) return;
+      document.getElementById('editStaffId').value = s.id;
+      document.getElementById('editStaffName').value = s.name;
+      document.getElementById('editStaffRole').value = s.role;
+      document.getElementById('editStaffModal').classList.add('active');
+    } else if (delId) {
+      const s = currentStaff.find(x => x.id === delId);
+      if (s && confirm(`[${s.name}] 선생님을 명단에서 삭제하시겠습니까?`)) {
+        try {
+          await deleteDoc(doc(db, 'staff', delId));
+          await loadStaff();
+          await loadSignDropdowns();
+        } catch (err) { alert('오류 발생: ' + err.message); }
+      }
+    }
+  });
+
+  document.getElementById('saveStaffBtn').addEventListener('click', async () => {
+    const id = document.getElementById('editStaffId').value;
+    try {
+      await updateDoc(doc(db, 'staff', id), {
+        name: document.getElementById('editStaffName').value,
+        role: document.getElementById('editStaffRole').value
+      });
+      document.getElementById('editStaffModal').classList.remove('active');
+      await loadStaff();
+      await loadSignDropdowns();
+    } catch (err) { alert('오류 발생: ' + err.message); }
+  });
+
+  document.querySelectorAll('[data-close]').forEach(btn => {
+    btn.addEventListener('click', () => document.getElementById(btn.dataset.close).classList.remove('active'));
+  });
+
+  // 기존 스프레드시트 명단 1회성 가져오기 (고정 ID라 재실행해도 중복 안 됨)
+  seedBtn.addEventListener('click', async () => {
+    if (!confirm('기존 스프레드시트의 교직원 54명과 등록된 연수 1건을 가져옵니다.\n(같은 항목이 이미 있으면 덮어씁니다) 계속할까요?')) return;
+    try {
+      const batch = writeBatch(db);
+      SEED_STAFF.forEach(s => batch.set(doc(db, 'staff', s.id), { name: s.name, role: s.role, order: s.order }));
+      SEED_TRAININGS.forEach(t => batch.set(doc(db, 'trainings', t.id), {
+        name: t.name, date: t.date, location: t.location, createdAt: serverTimestamp()
+      }));
+      await batch.commit();
+      alert('가져오기 완료!');
+      await loadTrainings(); await loadStaff(); await loadSignDropdowns();
+    } catch (err) { alert('오류 발생: ' + err.message); }
+  });
+
+  // ----------------------------------------------------------------
+  // 관리자: 서명부 조회 · PDF
+  // ----------------------------------------------------------------
+  async function fetchSignatureStatus(trainingId) {
+    const staff = await fetchStaff(); // order asc (등록순)
+    const snap = await getDocs(query(collection(db, 'signatures'), where('trainingId', '==', trainingId)));
+    const map = {};
+    snap.forEach(d => { const v = d.data(); map[v.staffName] = v; });
+    return staff.map(s => ({
+      name: s.name, role: s.role,
+      hasSigned: !!map[s.name],
+      signature: map[s.name]?.signature || ''
+    }));
+  }
+
+  statusTrainingSelect.addEventListener('change', async () => {
+    const trainingId = statusTrainingSelect.value;
+    if (!trainingId) {
+      statusReportTable.innerHTML = '<tr><td colspan="4" class="empty-note">상단 드롭다운에서 조회할 연수를 지정해 주세요.</td></tr>';
+      pdfBtn.disabled = true;
+      return;
+    }
+    statusReportTable.innerHTML = '<tr><td colspan="4" class="empty-note">서명 데이터를 대조하는 중입니다...</td></tr>';
+    const statusList = await fetchSignatureStatus(trainingId);
+    statusReportTable.innerHTML = '';
+    pdfBtn.disabled = false;
+    statusList.forEach(s => {
+      const badge = s.hasSigned ? '<span class="badge badge-ok">🟢 완료</span>' : '<span class="badge badge-no">❌ 미참여</span>';
+      const img = s.hasSigned ? `<img src="${s.signature}" class="sig-thumb">` : '<span style="color:var(--slate-300);">-</span>';
+      const actionBtn = s.hasSigned
+        ? `<button class="btn btn-danger btn-sm" data-del-sig="${escapeHtml(s.name)}">서명 삭제</button>`
+        : '<span style="color:var(--slate-300);">-</span>';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="font-weight:600;">${escapeHtml(s.name)}</td>
+        <td style="color:var(--slate-500);">${escapeHtml(s.role)}</td>
+        <td style="text-align:center;">${badge}</td>
+        <td style="text-align:center;"><div style="display:flex;align-items:center;justify-content:center;gap:10px;">${img}${actionBtn}</div></td>`;
+      statusReportTable.appendChild(tr);
+    });
+  });
+
+  statusReportTable.addEventListener('click', async (e) => {
+    const staffName = e.target.dataset.delSig;
+    if (!staffName) return;
+    const trainingId = statusTrainingSelect.value;
+    if (!confirm(`[경고] ${staffName} 선생님의 서명 데이터를 완전히 삭제하시겠습니까?\n(삭제 시 복구가 불가능하며, PDF 인쇄 시 빈칸으로 나옵니다.)`)) return;
+    try {
+      await deleteDoc(doc(db, 'signatures', `${trainingId}__${encodeURIComponent(staffName)}`));
+      statusTrainingSelect.dispatchEvent(new Event('change'));
+    } catch (err) { alert('오류 발생: ' + err.message); }
+  });
+
+  // ----------------------------------------------------------------
+  // PDF 생성 (HTML → html2canvas → jsPDF, 원본 앱스스크립트와 동일한
+  // 2단 압축 레이아웃을 브라우저에서 그대로 재현)
+  // ----------------------------------------------------------------
+  function buildPdfHtml(training, statusList) {
+    const total = statusList.length;
+    let rowH = '32px', imgH = '26px', fontSize = '11px';
+    if (total > 60) { rowH = '18px'; imgH = '15px'; fontSize = '8.5px'; }
+    else if (total > 40) { rowH = '22px'; imgH = '18px'; fontSize = '9.5px'; }
+    else if (total > 24) { rowH = '26px'; imgH = '22px'; fontSize = '10.5px'; }
+
+    const half = Math.ceil(total / 2);
+    const left = statusList.slice(0, half);
+    const right = statusList.slice(half);
+
+    function rowsHtml(list, offset) {
+      return list.map((item, i) => {
+        const sig = item.hasSigned
+          ? `<img src="${item.signature}" style="max-height:${imgH};max-width:100%;vertical-align:middle;object-fit:contain;">`
+          : '&nbsp;';
+        return `<tr><td style="height:${rowH};">${offset + i + 1}</td><td style="height:${rowH};font-weight:bold;">${escapeHtml(item.name)}</td><td style="height:${rowH};">${escapeHtml(item.role)}</td><td style="height:${rowH};">${sig}</td></tr>`;
+      }).join('');
+    }
+    let rightHtml = rowsHtml(right, half);
+    if (total % 2 !== 0) rightHtml += `<tr><td style="height:${rowH};">&nbsp;</td><td></td><td></td><td></td></tr>`;
+
+    function tableHtml(bodyHtml) {
+      return `<table style="width:100%;font-size:${fontSize};table-layout:fixed;">
+        <thead><tr>
+          <th style="width:12%;background:#f2f2f2;height:${rowH};">순</th>
+          <th style="width:28%;background:#f2f2f2;height:${rowH};">성명</th>
+          <th style="width:30%;background:#f2f2f2;height:${rowH};">직위</th>
+          <th style="width:30%;background:#f2f2f2;height:${rowH};">서명</th>
+        </tr></thead>
+        <tbody>${bodyHtml}</tbody>
+      </table>`;
+    }
+
+    return `
+      <div style="text-align:center;font-size:20px;font-weight:bold;margin-bottom:10px;letter-spacing:1px;">2026학년도 교직원 연수 등록부</div>
+      <table style="width:100%;margin-bottom:10px;font-size:11px;">
+        <tr>
+          <td style="padding:4px 2px;border:none;border-bottom:2px solid #333;text-align:left;"><strong>연수명:</strong> ${escapeHtml(training.name)}</td>
+          <td style="padding:4px 2px;border:none;border-bottom:2px solid #333;width:22%;text-align:left;"><strong>일시:</strong> ${escapeHtml(training.date)}</td>
+          <td style="padding:4px 2px;border:none;border-bottom:2px solid #333;width:18%;text-align:left;"><strong>장소:</strong> ${escapeHtml(training.location)}</td>
+        </tr>
+      </table>
+      <div style="display:table;width:100%;table-layout:fixed;">
+        <div style="display:table-cell;width:49%;vertical-align:top;">${tableHtml(rowsHtml(left, 0))}</div>
+        <div style="display:table-cell;width:2%;"></div>
+        <div style="display:table-cell;width:49%;vertical-align:top;">${tableHtml(rightHtml)}</div>
+      </div>`;
+  }
+
+  pdfBtn.addEventListener('click', async () => {
+    const trainingId = statusTrainingSelect.value;
+    const training = currentTrainings.find(t => t.id === trainingId);
+    if (!training) return;
+
+    const statusList = await fetchSignatureStatus(trainingId);
+    if (statusList.length === 0) { alert('등록된 교직원이 없습니다.'); return; }
+
+    pdfBtn.disabled = true;
+    pdfBtn.textContent = '⏳ 빌드 중...';
+    try {
+      pdfSheet.innerHTML = buildPdfHtml(training, statusList);
+      const imgs = Array.from(pdfSheet.querySelectorAll('img'));
+      await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(res => { img.onload = img.onerror = res; })));
+
+      const canvasOut = await html2canvas(pdfSheet, { scale: 2, backgroundColor: '#ffffff' });
+      const { jsPDF } = window.jspdf;
+      const docPdf = new jsPDF('p', 'mm', 'a4');
+      const pageW = 210, pageH = 297;
+      const imgH2 = Math.min(canvasOut.height * pageW / canvasOut.width, pageH);
+      docPdf.addImage(canvasOut.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pageW, imgH2);
+      docPdf.save(`${training.name}_연수등록부.pdf`);
+    } catch (err) {
+      alert('PDF 생성 중 오류가 발생했습니다: ' + err.message);
+    } finally {
+      pdfBtn.disabled = false;
+      pdfBtn.textContent = '🖨️ PDF 다운로드';
+    }
+  });
+
+  // ----------------------------------------------------------------
+  // 시작
+  // ----------------------------------------------------------------
+  (async () => {
+    resizeCanvas();
+    await loadSignDropdowns();
+    route();
+  })();
+  </script>
+</body>
+</html>
