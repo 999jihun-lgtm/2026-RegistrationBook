@@ -415,6 +415,7 @@
   let currentTrainings = [];
   let currentStaff = [];
   let isAdmin = false;
+  let signTrainings = [];
 
   // ----------------------------------------------------------------
   // 라우팅 (#admin)
@@ -538,10 +539,11 @@
   // ----------------------------------------------------------------
   async function loadSignDropdowns() {
     const trainings = await fetchTrainings();
+    signTrainings = trainings;
     trainingSelect.innerHTML = '<option value="">-- 진행 중인 연수를 선택하세요 --</option>';
     trainings.forEach(t => {
       const opt = document.createElement('option');
-      opt.value = t.id; opt.textContent = t.name;
+      opt.value = t.id; opt.textContent = `${t.date} | ${t.name}`;
       trainingSelect.appendChild(opt);
     });
 
@@ -557,7 +559,7 @@
 
   submitBtn.addEventListener('click', async () => {
     const trainingId = trainingSelect.value;
-    const trainingName = trainingSelect.selectedOptions[0]?.textContent || '';
+    const trainingName = signTrainings.find(t => t.id === trainingId)?.name || '';
     const staffName = staffSelect.value;
     const role = staffSelect.selectedOptions[0]?.dataset.role || '';
 
