@@ -548,10 +548,18 @@
     });
 
     const staff = sortForStaffSelect(await fetchStaff());
+    // 동명이인이 있으면 목록에서 구분할 수 있도록 등록번호를 덧붙입니다.
+    const nameCounts = {};
+    staff.forEach(s => { nameCounts[s.name] = (nameCounts[s.name] || 0) + 1; });
+
     staffSelect.innerHTML = '<option value="">-- 성명을 선택하세요 --</option>';
     staff.forEach(s => {
       const opt = document.createElement('option');
-      opt.value = s.name; opt.textContent = `${s.name} (${s.role})`;
+      opt.value = s.id; // 이름이 아닌 고유 ID를 값으로 사용 (동명이인 서명 혼선 방지)
+      opt.textContent = nameCounts[s.name] > 1
+        ? `${s.name} (${s.role}) - 등록번호 ${s.order}`
+        : `${s.name} (${s.role})`;
+      opt.dataset.name = s.name;
       opt.dataset.role = s.role;
       staffSelect.appendChild(opt);
     });
@@ -560,19 +568,21 @@
   submitBtn.addEventListener('click', async () => {
     const trainingId = trainingSelect.value;
     const trainingName = signTrainings.find(t => t.id === trainingId)?.name || '';
-    const staffName = staffSelect.value;
+    const staffId = staffSelect.value;
+    const staffName = staffSelect.selectedOptions[0]?.dataset.name || '';
     const role = staffSelect.selectedOptions[0]?.dataset.role || '';
 
     if (!trainingId) return alert('연수를 선택해 주세요.');
-    if (!staffName) return alert('성명을 선택해 주세요.');
+    if (!staffId) return alert('성명을 선택해 주세요.');
     if (isCanvasBlank()) return alert('서명 패드에 친필 서명을 입력해 주세요.');
 
     submitBtn.disabled = true;
     submitBtn.textContent = '서명 전송 중...';
     try {
-      const sigId = `${trainingId}__${encodeURIComponent(staffName)}`;
+      // 교직원 고유 ID로 서명 문서를 식별합니다 (동명이인이어도 서로 섞이지 않음).
+      const sigId = `${trainingId}__${staffId}`;
       await setDoc(doc(db, 'signatures', sigId), {
-        trainingId, trainingName, staffName, role,
+        trainingId, trainingName, staffId, staffName, role,
         signature: canvas.toDataURL('image/png'),
         submittedAt: serverTimestamp()
       });
@@ -786,15 +796,24 @@
   // 관리자: 서명부 조회 · PDF
   // ----------------------------------------------------------------
   async function fetchSignatureStatus(trainingId) {
-    const staff = await fetchStaff(); // order asc (등록순)
+    const staff = sortForStaffSelect(await fetchStaff()); // 교장→교감→가나다순
     const snap = await getDocs(query(collection(db, 'signatures'), where('trainingId', '==', trainingId)));
-    const map = {};
-    snap.forEach(d => { const v = d.data(); map[v.staffName] = v; });
-    return staff.map(s => ({
-      name: s.name, role: s.role,
-      hasSigned: !!map[s.name],
-      signature: map[s.name]?.signature || ''
-    }));
+    const byId = {}, byName = {};
+    snap.forEach(d => {
+      const v = d.data();
+      const entry = { ...v, _docId: d.id };
+      if (v.staffId) byId[v.staffId] = entry;
+      else if (!byName[v.staffName]) byName[v.staffName] = entry; // 이전 방식(이름 기준)으로 저장된 서명과의 호환용
+    });
+    return staff.map(s => {
+      const match = byId[s.id] || byName[s.name];
+      return {
+        id: s.id, name: s.name, role: s.role,
+        hasSigned: !!match,
+        signature: match?.signature || '',
+        docId: match?._docId || null
+      };
+    });
   }
 
   statusTrainingSelect.addEventListener('change', async () => {
@@ -812,7 +831,7 @@
       const badge = s.hasSigned ? '<span class="badge badge-ok">🟢 완료</span>' : '<span class="badge badge-no">❌ 미참여</span>';
       const img = s.hasSigned ? `<img src="${s.signature}" class="sig-thumb">` : '<span style="color:var(--slate-300);">-</span>';
       const actionBtn = s.hasSigned
-        ? `<button class="btn btn-danger btn-sm" data-del-sig="${escapeHtml(s.name)}">서명 삭제</button>`
+        ? `<button class="btn btn-danger btn-sm" data-del-sig-doc="${escapeHtml(s.docId)}" data-del-sig-name="${escapeHtml(s.name)}">서명 삭제</button>`
         : '<span style="color:var(--slate-300);">-</span>';
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -825,12 +844,12 @@
   });
 
   statusReportTable.addEventListener('click', async (e) => {
-    const staffName = e.target.dataset.delSig;
-    if (!staffName) return;
-    const trainingId = statusTrainingSelect.value;
+    const docId = e.target.dataset.delSigDoc;
+    if (!docId) return;
+    const staffName = e.target.dataset.delSigName || '';
     if (!confirm(`[경고] ${staffName} 선생님의 서명 데이터를 완전히 삭제하시겠습니까?\n(삭제 시 복구가 불가능하며, PDF 인쇄 시 빈칸으로 나옵니다.)`)) return;
     try {
-      await deleteDoc(doc(db, 'signatures', `${trainingId}__${encodeURIComponent(staffName)}`));
+      await deleteDoc(doc(db, 'signatures', docId));
       statusTrainingSelect.dispatchEvent(new Event('change'));
     } catch (err) { alert('오류 발생: ' + err.message); }
   });
