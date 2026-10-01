@@ -91,6 +91,14 @@
 
   .status-toolbar { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap: 12px; border-bottom: 1px solid var(--slate-200); padding-bottom: 16px; margin-bottom: 12px; }
   .status-toolbar select { min-width: 220px; font-weight: 700; }
+  .status-subbar { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap: 12px; margin-bottom: 12px; }
+  .status-count { font-size: 13px; font-weight: 600; color: var(--slate-600); }
+  .status-count b { color: var(--slate-800); font-size: 14px; }
+  .status-count .count-ok { color: var(--emerald-700); }
+  .status-count .count-no { color: var(--rose-600); }
+  .filterbar { display:flex; gap:4px; background: var(--slate-100); padding:4px; border-radius:9px; }
+  .filterbtn { background: transparent; border:none; padding:6px 12px; border-radius:6px; font-size:13px; font-weight:700; color: var(--slate-500); cursor:pointer; }
+  .filterbtn.active { background:#fff; color: var(--blue-700); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
   table.status-table { width:100%; border-collapse: collapse; }
   table.status-table th, table.status-table td { padding: 10px; border-bottom: 1px solid var(--slate-100); text-align:left; font-size: 14px; }
   table.status-table th { background: var(--slate-100); font-size: 13px; }
@@ -263,6 +271,14 @@
               <button type="button" id="pdfBtn" class="btn btn-dark" disabled>🖨️ PDF 다운로드</button>
             </div>
           </div>
+          <div class="status-subbar" id="statusSubbar" hidden>
+            <div class="status-count" id="statusCount"></div>
+            <div class="filterbar">
+              <button type="button" class="filterbtn active" data-filter="all">전체</button>
+              <button type="button" class="filterbtn" data-filter="signed">🟢 완료</button>
+              <button type="button" class="filterbtn" data-filter="unsigned">❌ 미참여</button>
+            </div>
+          </div>
           <div class="list-scroll" style="max-height:520px;">
             <table class="status-table">
               <thead>
@@ -409,6 +425,8 @@
 
   const statusTrainingSelect = document.getElementById('statusTrainingSelect');
   const statusReportTable = document.getElementById('statusReportTable');
+  const statusSubbar = document.getElementById('statusSubbar');
+  const statusCount = document.getElementById('statusCount');
   const pdfBtn = document.getElementById('pdfBtn');
   const pdfSheet = document.getElementById('pdfSheet');
 
@@ -416,6 +434,8 @@
   let currentStaff = [];
   let isAdmin = false;
   let signTrainings = [];
+  let currentStatusList = [];
+  let currentStatusFilter = 'all'; // 'all' | 'signed' | 'unsigned'
 
   // ----------------------------------------------------------------
   // 라우팅 (#admin)
@@ -816,18 +836,28 @@
     });
   }
 
-  statusTrainingSelect.addEventListener('change', async () => {
-    const trainingId = statusTrainingSelect.value;
-    if (!trainingId) {
-      statusReportTable.innerHTML = '<tr><td colspan="4" class="empty-note">상단 드롭다운에서 조회할 연수를 지정해 주세요.</td></tr>';
-      pdfBtn.disabled = true;
+  function renderStatusTable() {
+    const total = currentStatusList.length;
+    const signedCount = currentStatusList.filter(s => s.hasSigned).length;
+    const unsignedCount = total - signedCount;
+
+    statusCount.innerHTML = total === 0
+      ? ''
+      : `전체 <b>${total}명</b> · <span class="count-ok">서명 완료 ${signedCount}명</span> · <span class="count-no">미참여 ${unsignedCount}명</span>`;
+
+    const filtered = currentStatusList.filter(s => {
+      if (currentStatusFilter === 'signed') return s.hasSigned;
+      if (currentStatusFilter === 'unsigned') return !s.hasSigned;
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      statusReportTable.innerHTML = '<tr><td colspan="4" class="empty-note">해당하는 인원이 없습니다.</td></tr>';
       return;
     }
-    statusReportTable.innerHTML = '<tr><td colspan="4" class="empty-note">서명 데이터를 대조하는 중입니다...</td></tr>';
-    const statusList = await fetchSignatureStatus(trainingId);
+
     statusReportTable.innerHTML = '';
-    pdfBtn.disabled = false;
-    statusList.forEach(s => {
+    filtered.forEach(s => {
       const badge = s.hasSigned ? '<span class="badge badge-ok">🟢 완료</span>' : '<span class="badge badge-no">❌ 미참여</span>';
       const img = s.hasSigned ? `<img src="${s.signature}" class="sig-thumb">` : '<span style="color:var(--slate-300);">-</span>';
       const actionBtn = s.hasSigned
@@ -841,6 +871,35 @@
         <td style="text-align:center;"><div style="display:flex;align-items:center;justify-content:center;gap:10px;">${img}${actionBtn}</div></td>`;
       statusReportTable.appendChild(tr);
     });
+  }
+
+  statusSubbar.querySelectorAll('.filterbtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentStatusFilter = btn.dataset.filter;
+      statusSubbar.querySelectorAll('.filterbtn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderStatusTable();
+    });
+  });
+
+  statusTrainingSelect.addEventListener('change', async () => {
+    const trainingId = statusTrainingSelect.value;
+    if (!trainingId) {
+      statusSubbar.hidden = true;
+      currentStatusList = [];
+      statusReportTable.innerHTML = '<tr><td colspan="4" class="empty-note">상단 드롭다운에서 조회할 연수를 지정해 주세요.</td></tr>';
+      pdfBtn.disabled = true;
+      return;
+    }
+    statusSubbar.hidden = true;
+    statusReportTable.innerHTML = '<tr><td colspan="4" class="empty-note">서명 데이터를 대조하는 중입니다...</td></tr>';
+    currentStatusList = await fetchSignatureStatus(trainingId);
+    pdfBtn.disabled = false;
+
+    currentStatusFilter = 'all';
+    statusSubbar.querySelectorAll('.filterbtn').forEach(b => b.classList.toggle('active', b.dataset.filter === 'all'));
+    statusSubbar.hidden = false;
+    renderStatusTable();
   });
 
   statusReportTable.addEventListener('click', async (e) => {
