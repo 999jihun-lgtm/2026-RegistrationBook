@@ -104,6 +104,20 @@
   table.status-table th { background: var(--slate-100); font-size: 13px; }
   .sig-thumb { height: 28px; border: 1px solid var(--slate-200); border-radius: 4px; background: var(--slate-50); padding: 1px; }
   .empty-note { text-align:center; color: var(--slate-400); padding: 40px 10px; }
+  .rolebox { display:flex; flex-wrap:wrap; gap:6px; }
+  .rolechk { display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border:1px solid var(--slate-300); border-radius:999px; font-size:13px; font-weight:600; cursor:pointer; background:#fff; }
+  .rolechk span { color: var(--slate-400); font-weight:500; font-size:12px; }
+  .roster-note { font-size:12px; line-height:1.6; color: var(--slate-600); background: var(--slate-100); border-radius:8px; padding:8px 10px; }
+  .roster-note b { color: var(--slate-800); }
+  .roster-note.warn { background:#fef3c7; color:#92400e; }
+  .rolechk.active { background: var(--blue-50); border-color: var(--blue-600); color: var(--blue-700); }
+  .roster-list { display:grid; grid-template-columns: 1fr 1fr; gap:2px 8px; max-height:300px; overflow-y:auto; border:1px solid var(--slate-200); border-radius:8px; padding:6px; }
+  @media (max-width: 520px) { .roster-list { grid-template-columns: 1fr; } }
+  .roster-item { display:flex; align-items:center; gap:7px; padding:6px 8px; border-radius:6px; font-size:14px; cursor:pointer; }
+  .roster-item:hover { background: var(--slate-100); }
+  .roster-item span { color: var(--slate-400); font-size:12px; }
+  #rosterModal .modal-box { max-width: 640px; max-height: 92vh; overflow-y: auto; }
+  .train-sub { font-size:11px; color: var(--slate-400); margin-top:2px; }
 
   /* 로그인 카드 */
   .login-wrap { max-width: 360px; margin: 60px auto; padding: 0 16px; }
@@ -214,12 +228,13 @@
 
         <div id="manageTab" class="grid2">
           <div class="card panel">
-            <h2>📅 신규 연수 개설</h2>
+            <h2>📅 신규 연수 개설 <span style="font-size:12px;font-weight:600;color:var(--slate-400);">1/2단계 · 기본 정보</span></h2>
             <form id="trainingForm">
               <div><label class="field-label">연수명</label><input type="text" id="trainingName" class="input" required placeholder="예: 과정중심평가 연수"></div>
               <div><label class="field-label">연수 날짜</label><input type="date" id="trainingDate" class="input" required></div>
               <div><label class="field-label">연수 장소</label><input type="text" id="trainingLocation" class="input" required placeholder="예: 시청각실"></div>
-              <button type="submit" class="btn btn-primary">연수 등록하기</button>
+              <p style="margin:0;font-size:12px;color:var(--slate-500);">다음 단계에서 이 연수에 참여할 교직원 명단을 직접 확인하고 선택합니다.</p>
+              <button type="submit" class="btn btn-primary">다음: 참여 명단 선택 →</button>
             </form>
           </div>
 
@@ -271,6 +286,7 @@
               <button type="button" id="pdfBtn" class="btn btn-dark" disabled>🖨️ PDF 다운로드</button>
             </div>
           </div>
+          <div class="roster-note" id="statusRosterNote" style="margin-bottom:12px;" hidden></div>
           <div class="status-subbar" id="statusSubbar" hidden>
             <div class="status-count" id="statusCount"></div>
             <div class="filterbar">
@@ -310,6 +326,28 @@
     </div>
   </div>
 
+  <div id="rosterModal" class="modal">
+    <div class="modal-box">
+      <h3 id="rosterTitle">참여 명단 선택</h3>
+      <div id="rosterInfo" class="roster-note"></div>
+      <div>
+        <label class="field-label">직위별로 한 번에 선택 / 해제</label>
+        <div id="rosterRoleChips" class="rolebox"></div>
+      </div>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <input type="text" id="rosterSearch" class="input" placeholder="성명 검색" style="flex:1; min-width:0;">
+        <button type="button" id="rosterAllBtn" class="btn btn-secondary btn-sm">전체 선택</button>
+        <button type="button" id="rosterNoneBtn" class="btn btn-secondary btn-sm">전체 해제</button>
+      </div>
+      <div id="rosterList" class="roster-list"></div>
+      <div id="rosterCount" class="status-count"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" id="rosterBackBtn">← 이전</button>
+        <button type="button" class="btn btn-primary" id="rosterSaveBtn">연수 등록 완료</button>
+      </div>
+    </div>
+  </div>
+
   <div id="editStaffModal" class="modal">
     <div class="modal-box">
       <h3>✏️ 교직원 정보 수정</h3>
@@ -338,7 +376,7 @@
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
     getFirestore, collection, doc, addDoc, setDoc, updateDoc, deleteDoc,
-    getDocs, query, orderBy, where, limit, writeBatch, serverTimestamp
+    getDoc, getDocs, query, orderBy, where, limit, writeBatch, serverTimestamp
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
   // ----------------------------------------------------------------
@@ -429,9 +467,18 @@
   const statusCount = document.getElementById('statusCount');
   const pdfBtn = document.getElementById('pdfBtn');
   const pdfSheet = document.getElementById('pdfSheet');
+  const statusRosterNote = document.getElementById('statusRosterNote');
+  const rosterModal = document.getElementById('rosterModal');
+  const rosterInfo = document.getElementById('rosterInfo');
+  const rosterRoleChips = document.getElementById('rosterRoleChips');
+  const rosterSearch = document.getElementById('rosterSearch');
+  const rosterList = document.getElementById('rosterList');
+  const rosterCount = document.getElementById('rosterCount');
 
   let currentTrainings = [];
   let currentStaff = [];
+  let staffUpdatedAt = null; // 교직원 명단 최종 수정 시각 (meta/staffList)
+  let signStaff = [];
   let isAdmin = false;
   let signTrainings = [];
   let currentStatusList = [];
@@ -558,6 +605,7 @@
   // 서명 화면 드롭다운 로드
   // ----------------------------------------------------------------
   async function loadSignDropdowns() {
+    const prevTraining = trainingSelect.value;
     const trainings = await fetchTrainings();
     signTrainings = trainings;
     trainingSelect.innerHTML = '<option value="">-- 진행 중인 연수를 선택하세요 --</option>';
@@ -566,13 +614,27 @@
       opt.value = t.id; opt.textContent = `${t.date} | ${t.name}`;
       trainingSelect.appendChild(opt);
     });
+    if (trainings.some(t => t.id === prevTraining)) trainingSelect.value = prevTraining;
 
-    const staff = sortForStaffSelect(await fetchStaff());
+    signStaff = await fetchStaff();
+    populateStaffSelect();
+  }
+
+  // 선택한 연수의 대상 직위에 해당하는 교직원만 성명 목록에 표시합니다.
+  function populateStaffSelect() {
+    const training = signTrainings.find(t => t.id === trainingSelect.value);
+    staffSelect.innerHTML = '';
+    if (!training) {
+      staffSelect.innerHTML = '<option value="">-- 먼저 연수를 선택하세요 --</option>';
+      staffSelect.disabled = true;
+      return;
+    }
+    staffSelect.disabled = false;
+    staffSelect.innerHTML = '<option value="">-- 성명을 선택하세요 --</option>';
+    const staff = staffForTraining(training, signStaff);
     // 동명이인이 있으면 목록에서 구분할 수 있도록 등록번호를 덧붙입니다.
     const nameCounts = {};
     staff.forEach(s => { nameCounts[s.name] = (nameCounts[s.name] || 0) + 1; });
-
-    staffSelect.innerHTML = '<option value="">-- 성명을 선택하세요 --</option>';
     staff.forEach(s => {
       const opt = document.createElement('option');
       opt.value = s.id; // 이름이 아닌 고유 ID를 값으로 사용 (동명이인 서명 혼선 방지)
@@ -584,6 +646,7 @@
       staffSelect.appendChild(opt);
     });
   }
+  trainingSelect.addEventListener('change', populateStaffSelect);
 
   submitBtn.addEventListener('click', async () => {
     const trainingId = trainingSelect.value;
@@ -639,6 +702,155 @@
       return diff !== 0 ? diff : a.name.localeCompare(b.name, 'ko');
     });
   }
+  // 연수의 참여 명단(staffIds)에 있는 교직원만 골라 교장→교감→가나다순으로 반환.
+  // 명단 정보가 없는 이전 연수는 전체 교직원을 대상으로 봅니다.
+  function staffForTraining(training, staffList) {
+    let list = staffList;
+    if (Array.isArray(training?.staffIds)) list = staffList.filter(s => training.staffIds.includes(s.id));
+    else if (Array.isArray(training?.roles)) list = staffList.filter(s => training.roles.includes(s.role)); // 직위 방식으로 만든 연수 호환
+    return sortForStaffSelect(list);
+  }
+  function formatDateTime(d) {
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+  function staffUpdatedText() {
+    return staffUpdatedAt ? formatDateTime(staffUpdatedAt) + ' 수정' : '기록 없음 (명단을 수정하면 기록됩니다)';
+  }
+  async function fetchStaffMeta() {
+    try {
+      const snap = await getDoc(doc(db, 'meta', 'staffList'));
+      const ts = snap.exists() ? snap.data().updatedAt : null;
+      staffUpdatedAt = ts && ts.toDate ? ts.toDate() : null;
+    } catch (e) { staffUpdatedAt = null; }
+  }
+  // 교직원 명단이 바뀔 때마다 호출: 명단 최종 수정 시각을 기록
+  async function touchStaffMeta() {
+    try {
+      await setDoc(doc(db, 'meta', 'staffList'), { updatedAt: serverTimestamp() });
+    } catch (e) {
+      alert('명단 수정 시각을 기록하지 못했습니다. Firestore 규칙에 meta 항목을 추가했는지 확인해 주세요.\n(' + e.message + ')');
+    }
+  }
+
+  // ----------------------------------------------------------------
+  // 참여 명단 선택 단계 (신규 연수 2단계 / 기존 연수 명단 편집 공용)
+  // ----------------------------------------------------------------
+  let rosterState = null; // { mode:'new'|'edit', trainingId, selected:Set }
+
+  function staffRoles() {
+    const c = {};
+    currentStaff.forEach(s => { c[s.role] = (c[s.role] || 0) + 1; });
+    return Object.keys(c)
+      .sort((a, b) => rolePriority(a) - rolePriority(b) || a.localeCompare(b, 'ko'))
+      .map(role => ({ role, count: c[role] }));
+  }
+  function toDate(ts) { return ts && ts.toDate ? ts.toDate() : null; }
+
+  function openRosterModal(mode, trainingId) {
+    if (currentStaff.length === 0) return alert('등록된 교직원이 없습니다. 먼저 교직원 명단을 등록해 주세요.');
+    let selected;
+    if (mode === 'edit') {
+      const t = currentTrainings.find(x => x.id === trainingId);
+      selected = new Set(staffForTraining(t, currentStaff).map(s => s.id));
+    } else {
+      selected = new Set(currentStaff.map(s => s.id)); // 기본: 전체 선택 후 빼는 방식
+    }
+    rosterState = { mode, trainingId, selected };
+    document.getElementById('rosterTitle').textContent = mode === 'new'
+      ? `📋 2/2단계 · 참여 명단 선택 (${document.getElementById('trainingName').value})`
+      : `📋 참여 명단 편집 (${currentTrainings.find(x => x.id === trainingId)?.name || ''})`;
+    document.getElementById('rosterBackBtn').textContent = mode === 'new' ? '← 이전' : '취소';
+    document.getElementById('rosterSaveBtn').textContent = mode === 'new' ? '연수 등록 완료' : '명단 저장';
+
+    const t = mode === 'edit' ? currentTrainings.find(x => x.id === trainingId) : null;
+    const rosterAt = t ? toDate(t.rosterAt) : null;
+    const staleWarn = rosterAt && staffUpdatedAt && staffUpdatedAt > rosterAt;
+    rosterInfo.className = 'roster-note' + (staleWarn ? ' warn' : '');
+    rosterInfo.innerHTML =
+      `현재 등록된 교직원 <b>${currentStaff.length}명</b> · 교직원 명단 최종 수정: <b>${escapeHtml(staffUpdatedText())}</b>`
+      + (t ? `<br>이 연수 명단 작성: <b>${rosterAt ? formatDateTime(rosterAt) : '기록 없음 (이전 방식으로 등록된 연수)'}</b>` : '')
+      + (staleWarn ? '<br>⚠️ 이 연수 명단을 작성한 뒤 교직원 명단이 수정되었습니다. 아래 목록을 꼭 확인해 주세요.' : '')
+      + '<br>참여할 선생님만 체크되어 있는지 확인한 뒤 저장해 주세요. 체크한 선생님만 서명 화면·서명부 조회·PDF에 나옵니다.';
+    rosterSearch.value = '';
+    renderRosterList();
+    renderRosterSummary();
+    rosterModal.classList.add('active');
+  }
+
+  function renderRosterList() {
+    const q = rosterSearch.value.trim();
+    const staff = sortForStaffSelect(currentStaff).filter(s => !q || s.name.includes(q));
+    const nameCounts = {};
+    currentStaff.forEach(s => { nameCounts[s.name] = (nameCounts[s.name] || 0) + 1; });
+    rosterList.innerHTML = staff.length ? staff.map(s => `
+      <label class="roster-item"><input type="checkbox" data-sid="${escapeHtml(s.id)}" ${rosterState.selected.has(s.id) ? 'checked' : ''}>
+        ${escapeHtml(s.name)} <span>${escapeHtml(s.role)}${nameCounts[s.name] > 1 ? ' · 등록번호 ' + s.order : ''}</span></label>`).join('')
+      : '<div class="empty-note" style="grid-column:1/-1;padding:16px;">검색 결과가 없습니다.</div>';
+  }
+
+  function renderRosterSummary() {
+    const sel = rosterState.selected;
+    rosterRoleChips.innerHTML = staffRoles().map(({ role, count }) => {
+      const n = currentStaff.filter(s => s.role === role && sel.has(s.id)).length;
+      return `<button type="button" class="rolechk${n === count ? ' active' : ''}" data-role="${escapeHtml(role)}">${escapeHtml(role)} <span>${n}/${count}명</span></button>`;
+    }).join('');
+    const excluded = currentStaff.length - sel.size;
+    rosterCount.innerHTML = `선택 <b class="count-ok">${sel.size}명</b> / 전체 ${currentStaff.length}명` + (excluded ? ` · 제외 ${excluded}명` : '');
+  }
+
+  rosterList.addEventListener('change', (e) => {
+    const id = e.target.dataset.sid;
+    if (!id) return;
+    e.target.checked ? rosterState.selected.add(id) : rosterState.selected.delete(id);
+    renderRosterSummary();
+  });
+  rosterRoleChips.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-role]');
+    if (!btn) return;
+    const members = currentStaff.filter(s => s.role === btn.dataset.role);
+    const allOn = members.every(s => rosterState.selected.has(s.id));
+    members.forEach(s => allOn ? rosterState.selected.delete(s.id) : rosterState.selected.add(s.id));
+    renderRosterList(); renderRosterSummary();
+  });
+  document.getElementById('rosterAllBtn').addEventListener('click', () => {
+    currentStaff.forEach(s => rosterState.selected.add(s.id));
+    renderRosterList(); renderRosterSummary();
+  });
+  document.getElementById('rosterNoneBtn').addEventListener('click', () => {
+    rosterState.selected.clear();
+    renderRosterList(); renderRosterSummary();
+  });
+  rosterSearch.addEventListener('input', renderRosterList);
+  document.getElementById('rosterBackBtn').addEventListener('click', () => rosterModal.classList.remove('active'));
+
+  document.getElementById('rosterSaveBtn').addEventListener('click', async () => {
+    const { mode, trainingId, selected } = rosterState;
+    if (selected.size === 0) return alert('참여할 교직원을 한 명 이상 선택해 주세요.');
+    const staffIds = currentStaff.filter(s => selected.has(s.id)).map(s => s.id); // 현재 존재하는 교직원만 저장
+    const saveBtn = document.getElementById('rosterSaveBtn');
+    saveBtn.disabled = true;
+    try {
+      if (mode === 'new') {
+        await addDoc(collection(db, 'trainings'), {
+          name: document.getElementById('trainingName').value,
+          date: document.getElementById('trainingDate').value,
+          location: document.getElementById('trainingLocation').value,
+          staffIds,
+          rosterAt: serverTimestamp(),
+          createdAt: serverTimestamp()
+        });
+        trainingForm.reset();
+      } else {
+        await updateDoc(doc(db, 'trainings', trainingId), { staffIds, rosterAt: serverTimestamp() });
+      }
+      rosterModal.classList.remove('active');
+      await loadTrainings();
+      await loadSignDropdowns();
+    } catch (err) { alert('오류 발생: ' + err.message); }
+    finally { saveBtn.disabled = false; }
+  });
+
   async function nextStaffOrder() {
     const snap = await getDocs(query(collection(db, 'staff'), orderBy('order', 'desc'), limit(1)));
     if (snap.empty) return 1;
@@ -653,44 +865,49 @@
   // ----------------------------------------------------------------
   async function loadTrainings() {
     currentTrainings = await fetchTrainings();
-    trainingListTable.innerHTML = '';
+    renderTrainingList();
     statusTrainingSelect.innerHTML = '<option value="">-- 조회할 연수를 선택하세요 --</option>';
     currentTrainings.forEach(t => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${escapeHtml(t.name)}</td>
-        <td>${escapeHtml(t.date)}</td>
-        <td class="actions-cell">
-          <button class="btn btn-sm" style="background:var(--amber-500);color:#fff;" data-edit-training="${t.id}">수정</button>
-          <button class="btn btn-danger btn-sm" data-delete-training="${t.id}">삭제</button>
-        </td>`;
-      trainingListTable.appendChild(tr);
-
       const opt = document.createElement('option');
       opt.value = t.id; opt.textContent = `${t.date} | ${t.name}`;
       statusTrainingSelect.appendChild(opt);
     });
   }
 
-  trainingForm.addEventListener('submit', async (e) => {
+  function trainingRosterText(t) {
+    if (Array.isArray(t.staffIds)) return `참여 명단: ${staffForTraining(t, currentStaff).length}명`;
+    if (Array.isArray(t.roles)) return `대상: ${t.roles.join(', ') || '없음'} (${staffForTraining(t, currentStaff).length}명)`;
+    return '참여 명단: 전체 교직원';
+  }
+  function renderTrainingList() {
+    trainingListTable.innerHTML = '';
+    currentTrainings.forEach(t => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${escapeHtml(t.name)}<div class="train-sub">${escapeHtml(trainingRosterText(t))}</div></td>
+        <td>${escapeHtml(t.date)}</td>
+        <td class="actions-cell">
+          <button class="btn btn-secondary btn-sm" data-roster-training="${t.id}">명단</button>
+          <button class="btn btn-sm" style="background:var(--amber-500);color:#fff;" data-edit-training="${t.id}">수정</button>
+          <button class="btn btn-danger btn-sm" data-delete-training="${t.id}">삭제</button>
+        </td>`;
+      trainingListTable.appendChild(tr);
+    });
+  }
+
+  // 1단계(기본 정보) → 2단계(참여 명단 선택)
+  trainingForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    try {
-      await addDoc(collection(db, 'trainings'), {
-        name: document.getElementById('trainingName').value,
-        date: document.getElementById('trainingDate').value,
-        location: document.getElementById('trainingLocation').value,
-        createdAt: serverTimestamp()
-      });
-      trainingForm.reset();
-      await loadTrainings();
-      await loadSignDropdowns();
-    } catch (err) { alert('오류 발생: ' + err.message); }
+    openRosterModal('new');
   });
 
   trainingListTable.addEventListener('click', async (e) => {
     const editId = e.target.dataset.editTraining;
     const delId = e.target.dataset.deleteTraining;
-    if (editId) {
+    const rosterId = e.target.dataset.rosterTraining;
+    if (rosterId) {
+      openRosterModal('edit', rosterId);
+    } else if (editId) {
       const t = currentTrainings.find(x => x.id === editId);
       if (!t) return;
       document.getElementById('editTrainingId').value = t.id;
@@ -729,6 +946,8 @@
   // ----------------------------------------------------------------
   async function loadStaff() {
     currentStaff = await fetchStaff();
+    await fetchStaffMeta();
+    renderTrainingList();
     staffListTable.innerHTML = '';
     currentStaff.forEach(s => {
       const tr = document.createElement('tr');
@@ -752,6 +971,7 @@
         role: document.getElementById('staffRole').value,
         order
       });
+      await touchStaffMeta();
       staffForm.reset();
       await loadStaff();
       await loadSignDropdowns();
@@ -773,6 +993,7 @@
       if (s && confirm(`[${s.name}] 선생님을 명단에서 삭제하시겠습니까?`)) {
         try {
           await deleteDoc(doc(db, 'staff', delId));
+          await touchStaffMeta();
           await loadStaff();
           await loadSignDropdowns();
         } catch (err) { alert('오류 발생: ' + err.message); }
@@ -787,6 +1008,7 @@
         name: document.getElementById('editStaffName').value,
         role: document.getElementById('editStaffRole').value
       });
+      await touchStaffMeta();
       document.getElementById('editStaffModal').classList.remove('active');
       await loadStaff();
       await loadSignDropdowns();
@@ -807,6 +1029,7 @@
         name: t.name, date: t.date, location: t.location, createdAt: serverTimestamp()
       }));
       await batch.commit();
+      await touchStaffMeta();
       alert('가져오기 완료!');
       await loadTrainings(); await loadStaff(); await loadSignDropdowns();
     } catch (err) { alert('오류 발생: ' + err.message); }
@@ -815,8 +1038,9 @@
   // ----------------------------------------------------------------
   // 관리자: 서명부 조회 · PDF
   // ----------------------------------------------------------------
-  async function fetchSignatureStatus(trainingId) {
-    const staff = sortForStaffSelect(await fetchStaff()); // 교장→교감→가나다순
+  async function fetchSignatureStatus(training) {
+    const trainingId = training.id;
+    const staff = staffForTraining(training, await fetchStaff()); // 대상 직위만, 교장→교감→가나다순
     const snap = await getDocs(query(collection(db, 'signatures'), where('trainingId', '==', trainingId)));
     const byId = {}, byName = {};
     snap.forEach(d => {
@@ -886,6 +1110,7 @@
     const trainingId = statusTrainingSelect.value;
     if (!trainingId) {
       statusSubbar.hidden = true;
+      statusRosterNote.hidden = true;
       currentStatusList = [];
       statusReportTable.innerHTML = '<tr><td colspan="4" class="empty-note">상단 드롭다운에서 조회할 연수를 지정해 주세요.</td></tr>';
       pdfBtn.disabled = true;
@@ -893,8 +1118,16 @@
     }
     statusSubbar.hidden = true;
     statusReportTable.innerHTML = '<tr><td colspan="4" class="empty-note">서명 데이터를 대조하는 중입니다...</td></tr>';
-    currentStatusList = await fetchSignatureStatus(trainingId);
+    const training = currentTrainings.find(t => t.id === trainingId);
+    currentStatusList = await fetchSignatureStatus(training);
     pdfBtn.disabled = false;
+    const rosterAt = toDate(training.rosterAt);
+    const stale = rosterAt && staffUpdatedAt && staffUpdatedAt > rosterAt;
+    statusRosterNote.className = 'roster-note' + (stale ? ' warn' : '');
+    statusRosterNote.innerHTML = `참여 명단 <b>${currentStatusList.length}명</b> (전체 등록 ${currentStaff.length}명 중)`
+      + ` · 명단 작성: <b>${rosterAt ? formatDateTime(rosterAt) : '기록 없음 (전체 교직원 기준)'}</b>`
+      + (stale ? '<br>⚠️ 명단 작성 이후 교직원 명단이 수정되었습니다. 연수 목록의 [명단]에서 확인해 주세요.' : '');
+    statusRosterNote.hidden = false;
 
     currentStatusFilter = 'all';
     statusSubbar.querySelectorAll('.filterbtn').forEach(b => b.classList.toggle('active', b.dataset.filter === 'all'));
@@ -969,8 +1202,8 @@
     const training = currentTrainings.find(t => t.id === trainingId);
     if (!training) return;
 
-    const statusList = await fetchSignatureStatus(trainingId);
-    if (statusList.length === 0) { alert('등록된 교직원이 없습니다.'); return; }
+    const statusList = await fetchSignatureStatus(training);
+    if (statusList.length === 0) { alert('이 연수의 대상 교직원이 없습니다.'); return; }
 
     pdfBtn.disabled = true;
     pdfBtn.textContent = '⏳ 빌드 중...';
